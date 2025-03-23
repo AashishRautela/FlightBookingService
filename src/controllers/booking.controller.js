@@ -1,6 +1,7 @@
 const { StatusCodes } = require('http-status-codes');
 const { BookingService } = require('../services');
 const { ErrorResponse, SuccessResponse } = require('../utils/common');
+
 const createBooking = async (req, res) => {
   try {
     const booking = await BookingService.createBooking(req.body);

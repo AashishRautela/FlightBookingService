@@ -1,4 +1,3 @@
-const { model } = require('../../repositories/airplane.repository');
 const v1Routes = require('./v1');
 const express = require('express');
 

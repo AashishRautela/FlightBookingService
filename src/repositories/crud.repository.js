@@ -1,4 +1,5 @@
-const { logger } = require('../config');
+const { StatusCodes } = require('http-status-codes');
+const AppError = require('../utils/errors/appError');
 
 class CrudRepository {
   constructor(model) {
@@ -6,61 +7,49 @@ class CrudRepository {
   }
 
   async create(data) {
-    try {
-      const response = await this.model.create(data);
-      return response;
-    } catch (error) {
-      logger.error('Something went wrong in crud repo:create');
-      throw error;
-    }
+    const response = await this.model.create(data);
+    return response;
+  }
+
+  async bulkCreate(data, options = {}) {
+    return await this.model.bulkCreate(data, options);
   }
 
   async destroy(data) {
-    try {
-      const response = await this.model.destroy({
-        where: {
-          id: data
-        }
-      });
-      return response;
-    } catch (error) {
-      logger.error('Something went wrong in crud repo:destroy');
-      throw error;
+    const response = await this.model.destroy({
+      where: {
+        id: data
+      }
+    });
+    if (!response) {
+      throw new AppError(['Resouce Not found'], StatusCodes.NOT_FOUND);
     }
+    return response;
   }
 
   async get(data) {
-    try {
-      const response = await this.model.findByPk(data);
-      return response;
-    } catch (error) {
-      logger.error('Something went wrong in crud repo:get');
-      throw error;
+    const response = await this.model.findByPk(data);
+    if (!response) {
+      throw new AppError(['Resouce Not found'], StatusCodes.NOT_FOUND);
     }
+    return response;
   }
 
   async getAll() {
-    try {
-      const response = await this.model.findAll();
-      return response;
-    } catch (error) {
-      logger.error('Something went wrong in crud repo:getAll');
-      throw error;
-    }
+    const response = await this.model.findAll();
+    return response;
   }
 
   async update(id, data) {
-    try {
-      const response = await this.model.update(data, {
-        where: {
-          id: id
-        }
-      });
-      return response;
-    } catch (error) {
-      logger.error('Something went wrong in crud repo:update');
-      throw error;
+    const response = await this.model.update(data, {
+      where: {
+        id: id
+      }
+    });
+    if (!response[0]) {
+      throw new AppError(['Resouce Not found'], StatusCodes.NOT_FOUND);
     }
+    return response;
   }
 }
 

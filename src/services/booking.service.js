@@ -14,29 +14,56 @@ const createBooking = async (data) => {
         `${flightService}/api/v1/flight/${data.flightId}`
       );
 
-      // first check if flight is present or not
-      if (!flight || !flight.data || !flight.data.data) {
+      const flightData = flight?.data?.data;
+      if (!flightData) {
         throw new AppError(['Flight not found'], StatusCodes.BAD_REQUEST);
       }
 
-      const flightData = flight?.data?.data;
-      // check if seats are available in flight or not
-      if (flightData?.totalSeats < data?.noOfSeats) {
-        const error = new AppError(
+      if (flightData.totalSeats < data.noOfSeats) {
+        throw new AppError(
           ['Not enough seats remaining'],
           StatusCodes.BAD_REQUEST
         );
-        throw error;
       }
 
-      return flight.data.data;
+      const totalCost = flightData.price * data.noOfSeats;
+
+      const bookingPayload = {
+        flightId: data.flightId,
+        userId: data.userId,
+        totalCost,
+        noOfSeats: data.noOfSeats,
+        status: 'pending'
+      };
+
+      let bookingEntry = await BookingRepository.createBooking(
+        bookingPayload,
+        t
+      );
+
+      const seatResponse = await axios.patch(
+        `${flightService}/api/v1/flight/${data.flightId}/seats`,
+        {
+          seats: data.noOfSeats,
+          dec: true
+        }
+      );
+      console.log('seatResponse', seatResponse);
+
+      if (!seatResponse?.data?.success) {
+        throw new AppError(
+          ['Failed to reserve seats in flight'],
+          StatusCodes.INTERNAL_SERVER_ERROR
+        );
+      }
+      bookingEntry.status = 'booked';
+      await bookingEntry.save();
+      return bookingEntry;
     });
 
     return booking;
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
+    if (error instanceof AppError) throw error;
     console.log('error', error);
     throw new AppError(
       ['Something went wrong while creating booking'],

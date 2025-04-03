@@ -164,7 +164,8 @@ const cancelBooking = async (data) => {
         seatResponse = await axios.patch(
           `${flightService}/api/v1/flight/${bookingDetails.flightId}/seats`,
           {
-            seats: bookingDetails.noOfSeats
+            seats: bookingDetails.noOfSeats,
+            dec: false
           }
         );
       }

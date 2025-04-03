@@ -5,6 +5,7 @@ const db = require('../models');
 const { default: axios } = require('axios');
 const { ServerConfig } = require('../config');
 const { Enums } = require('../utils/common');
+const moment = require('moment');
 const { BOOKED, INITIATED } = Enums.BOOKING_STATUS;
 
 const createBooking = async (data) => {
@@ -79,6 +80,18 @@ const makePayment = async (data) => {
       data.bookingId,
       transaction
     );
+    console.log('bookingDetails', bookingDetails);
+
+    const createdAt = moment(bookingDetails?.createdAt);
+    const now = moment();
+    const expiresAt = createdAt.clone().add(20, 'minutes');
+
+    if (now.isAfter(expiresAt)) {
+      throw new AppError(
+        ['The booking has been expired'],
+        StatusCodes.BAD_REQUEST
+      );
+    }
 
     if (bookingDetails.totalCost != data.totalCost) {
       throw new AppError(
@@ -104,7 +117,7 @@ const makePayment = async (data) => {
     await transaction.commit();
     return updatedBooking;
   } catch (error) {
-    console.log('before rollback');
+    console.log('error', error);
 
     if (transaction) {
       try {

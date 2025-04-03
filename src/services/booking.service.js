@@ -4,6 +4,8 @@ const AppError = require('../utils/errors/appError');
 const db = require('../models');
 const { default: axios } = require('axios');
 const { ServerConfig } = require('../config');
+const { Enums } = require('../utils/common');
+const { BOOKED, INITIATED } = Enums.BOOKING_STATUS;
 
 const createBooking = async (data) => {
   try {
@@ -32,8 +34,7 @@ const createBooking = async (data) => {
         flightId: data.flightId,
         userId: data.userId,
         totalCost,
-        noOfSeats: data.noOfSeats,
-        status: 'pending'
+        noOfSeats: data.noOfSeats
       };
 
       let bookingEntry = await BookingRepository.createBooking(
@@ -48,7 +49,6 @@ const createBooking = async (data) => {
           dec: true
         }
       );
-      console.log('seatResponse', seatResponse);
 
       if (!seatResponse?.data?.success) {
         throw new AppError(
@@ -56,8 +56,6 @@ const createBooking = async (data) => {
           StatusCodes.INTERNAL_SERVER_ERROR
         );
       }
-      bookingEntry.status = 'booked';
-      await bookingEntry.save();
       return bookingEntry;
     });
 
@@ -72,4 +70,58 @@ const createBooking = async (data) => {
   }
 };
 
-module.exports = { createBooking };
+const makePayment = async (data) => {
+  let transaction;
+  try {
+    transaction = await db.sequelize.transaction();
+
+    const bookingDetails = await BookingRepository.get(
+      data.bookingId,
+      transaction
+    );
+
+    if (bookingDetails.totalCost != data.totalCost) {
+      throw new AppError(
+        ['The amount of payment does not match'],
+        StatusCodes.BAD_REQUEST
+      );
+    }
+
+    if (bookingDetails.userId !== data.userId) {
+      throw new AppError(
+        ['The user does not match with corresponding details'],
+        StatusCodes.BAD_REQUEST
+      );
+    }
+
+    // payment is successful
+    const updatedBooking = await BookingRepository.update(
+      data.bookingId,
+      { status: BOOKED },
+      transaction
+    );
+
+    await transaction.commit();
+    return updatedBooking;
+  } catch (error) {
+    console.log('before rollback');
+
+    if (transaction) {
+      try {
+        await transaction.rollback();
+        console.log('after rollback');
+      } catch (rollbackErr) {
+        console.error('Rollback failed:', rollbackErr);
+      }
+    }
+
+    if (error instanceof AppError) throw error;
+
+    throw new AppError(
+      ['Something went wrong while processing the payment'],
+      StatusCodes.INTERNAL_SERVER_ERROR
+    );
+  }
+};
+
+module.exports = { createBooking, makePayment };

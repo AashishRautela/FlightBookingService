@@ -189,4 +189,39 @@ const cancelBooking = async (data) => {
   }
 };
 
-module.exports = { createBooking, makePayment, cancelBooking };
+const getAllBookings = async () => {
+  try {
+    const bookings = await BookingRepository.getAll();
+    return bookings;
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    console.log('error', error);
+    throw new AppError(
+      ['Something went wrong while getting bookings'],
+      StatusCodes.INTERNAL_SERVER_ERROR
+    );
+  }
+};
+
+const cancelOldBookings = async (timestamp) => {
+  try {
+    const bookings = await BookingRepository.cancelOldBookings(timestamp);
+    console.log('bookings', bookings);
+    return bookings;
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    console.log('error', error);
+    throw new AppError(
+      ['Something went wrong while getting bookings'],
+      StatusCodes.INTERNAL_SERVER_ERROR
+    );
+  }
+};
+
+module.exports = {
+  createBooking,
+  makePayment,
+  cancelBooking,
+  getAllBookings,
+  cancelOldBookings
+};

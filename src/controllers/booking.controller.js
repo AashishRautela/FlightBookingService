@@ -71,4 +71,18 @@ const cancelBooking = async (req, res) => {
   }
 };
 
-module.exports = { createBooking, makePayment, cancelBooking };
+const getAllBookings = async (req, res) => {
+  try {
+    const bookings = await BookingService.getAllBookings();
+    SuccessResponse.data = bookings;
+
+    return res.status(StatusCodes.OK).json(SuccessResponse);
+  } catch (error) {
+    ErrorResponse.error = error;
+    return res
+      .status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)
+      .json(ErrorResponse);
+  }
+};
+
+module.exports = { createBooking, makePayment, cancelBooking, getAllBookings };

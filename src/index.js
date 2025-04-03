@@ -2,6 +2,7 @@ const express = require('express');
 
 const { ServerConfig } = require('./config');
 const apiRoutes = require('./routes');
+const initializeSchedulers = require('./crons');
 
 const app = express();
 
@@ -22,6 +23,7 @@ try {
       console.log(`server is running in port ${ServerConfig.PORT}`);
     });
   };
+  initializeSchedulers();
 
   startService();
 } catch (error) {

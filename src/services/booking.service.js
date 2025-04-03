@@ -6,7 +6,7 @@ const { default: axios } = require('axios');
 const { ServerConfig } = require('../config');
 const { Enums } = require('../utils/common');
 const moment = require('moment');
-const { BOOKED, INITIATED } = Enums.BOOKING_STATUS;
+const { BOOKED, INITIATED, CANCELLED } = Enums.BOOKING_STATUS;
 
 const createBooking = async (data) => {
   try {
@@ -80,7 +80,14 @@ const makePayment = async (data) => {
       data.bookingId,
       transaction
     );
+
     console.log('bookingDetails', bookingDetails);
+    if (bookingDetails?.status == CANCELLED) {
+      throw new AppError(
+        ['The booking has been cancelled'],
+        StatusCodes.BAD_REQUEST
+      );
+    }
 
     const createdAt = moment(bookingDetails?.createdAt);
     const now = moment();
@@ -88,7 +95,7 @@ const makePayment = async (data) => {
 
     if (now.isAfter(expiresAt)) {
       throw new AppError(
-        ['The booking has been expired'],
+        ['The booking has been cancelled'],
         StatusCodes.BAD_REQUEST
       );
     }
@@ -137,4 +144,48 @@ const makePayment = async (data) => {
   }
 };
 
-module.exports = { createBooking, makePayment };
+const cancelBooking = async (data) => {
+  try {
+    const flightService = ServerConfig.FLIGHT_SERVICE;
+    const booking = await db.sequelize.transaction(async (t) => {
+      const bookingDetails = await BookingRepository.get(data, t);
+
+      if (bookingDetails.status === CANCELLED) {
+        return true;
+      }
+      const updatedBooking = await BookingRepository.update(
+        data,
+        { status: CANCELLED },
+        t
+      );
+
+      let seatResponse;
+      if (updatedBooking) {
+        seatResponse = await axios.patch(
+          `${flightService}/api/v1/flight/${bookingDetails.flightId}/seats`,
+          {
+            seats: bookingDetails.noOfSeats
+          }
+        );
+      }
+
+      if (!seatResponse?.data?.success) {
+        throw new AppError(
+          ['Failed to cancel the booking'],
+          StatusCodes.INTERNAL_SERVER_ERROR
+        );
+      }
+      return true;
+    });
+    return booking;
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    console.log('error', error);
+    throw new AppError(
+      ['Something went wrong while booking cancellation'],
+      StatusCodes.INTERNAL_SERVER_ERROR
+    );
+  }
+};
+
+module.exports = { createBooking, makePayment, cancelBooking };
